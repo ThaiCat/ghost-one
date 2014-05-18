@@ -1,0 +1,8 @@
+Load=F6
+Map=F7
+Mute=F8
+Priv=F3
+Pub=F2
+Start=F5
+Swap=F9
+Unhost=F4
