@@ -180,18 +180,12 @@ public:
 
 	bool nsSendAdminGameStats;
 
-	bool nsEnableStayPercentageCheck;
-	bool nsAllowUnknownStayPercentagePlayers;
-
 	bool nsEnableStayPercentageCheckNew;
 	bool nsAllowUnknownStayPercentagePlayersNew;
 	uint32_t nsPlayerGamesCountNew;
 	uint32_t nsStayRequaredPercentage1moreNew;
 	uint32_t nsStayRequaredPercentage2moreNew;
 	uint32_t nsStayRequaredPercentage4moreNew;
-
-	uint32_t nsStayRequaredPercentage;
-	uint32_t nsMinGamesCountToApplyRule;
 
 	string ns_server_server[32];
 	string ns_server_alias[32];

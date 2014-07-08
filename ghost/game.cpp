@@ -2848,6 +2848,30 @@ bool CGame :: EventPlayerBotCommand( CGamePlayer *player, string command, string
 						ComputerSlot( (unsigned char)( Slot - 1 ), (unsigned char)Skill, true );
 				}
 			}
+			
+			if( ( Command == "mcomp" || Command == "multicomp" )&& !Payload.empty( ) && !m_GameLoading && !m_GameLoaded && !m_SaveGame )
+			{
+				// extract the slot and the skill
+				// e.g. "1 2" -> slot: "1", skill: "2"
+
+				stringstream SS;
+				SS << Payload;
+
+				while( !SS.eof( ) )
+				{
+					uint32_t Slot;					
+					SS >> Slot;
+					
+					if( SS.fail( ) )
+					{
+						CONSOLE_Print( "[GAME: " + m_GameName + "] bad input to multicomp command" );
+					}
+					else
+					{
+						ComputerSlot( (unsigned char)( Slot - 1 ), (unsigned char)1, true );
+					}
+				}
+			}
 
 			//
 			// !COMPCOLOUR (computer colour change)

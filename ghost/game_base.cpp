@@ -2910,80 +2910,49 @@ void CBaseGame :: EventPlayerJoined( CPotentialPlayer *potential, CIncomingJoinP
 		}
 	}
 
-	/*
-			for( vector<CBNET *> :: iterator i = m_GHost->m_BNETs.begin( ); i != m_GHost->m_BNETs.end( ); i++ )
-			{
-				CDBBan *IPBan = (*i)->IsBannedIP(potential->GetExternalIPString( ) );
+	//проверим стату 
+	//так должно быть быстрее, если не баганет
 
-				if( IPBan )
-				{
-					string sReason = IPBan->GetReason();
-					string sName = IPBan->GetName();
-					string sAdmin = IPBan->GetAdmin();
-					CONSOLE_Print( "[GAME: " + m_GameName + "] player [" + joinPlayer->GetName( ) +"("+potential->GetExternalIPString()+")"+ "] is trying to join the game but is IP banned" );
-					if (m_GHost->m_IPBanning==1)
-						if (m_GHost->m_Verbose)
-						{
-							SendAllChat( m_GHost->m_Language->TryingToJoinTheGameButBanned( joinPlayer->GetName()+"(IP of  "+sName+" )", IPBan->GetAdmin()) );
-							if (sReason!="")
-								SendAllChat ( "Ban reason: "+sReason);
-						}
-					if ((m_GHost->m_IPBanning==1 && m_Bans) || (      m_GHost->m_IPBanning==2 && IsRootAdmin( sAdmin )      ) )
-					{
-						// let banned players "join" the game with an arbitrary PID then immediately close the connection
-						// this causes them to be kicked back to the chat channel on battle.net
-						// also new check should kick players banned by rootadmin too
-		
-						vector<CGameSlot> Slots = m_Map->GetSlots( );
-						potential->Send( m_Protocol->SEND_W3GS_SLOTINFOJOIN( 1, potential->GetSocket( )->GetPort( ), potential->GetExternalIP( ), Slots, 0, m_Map->GetMapGameType( ) == GAMETYPE_CUSTOM ? 3 : 0, m_Map->GetMapNumPlayers( ) ) );
-						potential->SetDeleteMe( true );
-						if (m_GHost->m_Verbose)
-						{
-							SendAllChat ( "Player [" + joinPlayer->GetName() + "] trying to join the game but banned by RootAdmin");
-						}
-						return;
-					}
+	PairedGPSCheck SinglePairNS("",m_GHost->m_DB->ThreadedGamePlayerSummaryCheck(joinPlayer->GetName()));
 
-					if (m_GHost->m_IPBanning==2 && !IsRootAdmin( sAdmin))
-					{
-						string sBan = joinPlayer->GetName()+"(IP banned as "+sName+") by "+sAdmin;
-						string sBReason = sBan + ", "+sReason;
+	uint32_t nsGamesPlayedCount;
+	uint32_t nsAveragePercentageStay;
+	uint32_t nsRequaredPercentageStay;
+	bool nsPlayerHasStats = false;
 
-						if (sReason=="")
-							SendAllChat( sBan );
-						else
-						{
-							if (sBReason.length()<220 && !m_GHost->m_TwoLinesBanAnnouncement)
-								SendAllChat( sBReason );
-							else
-							{
-								SendAllChat( sBan );
-								SendAllChat( "Ban reason: " + sReason );
-							}
-						}
-					}
-				}
-			}
-		*/
-	//проверим стату
+	if(SinglePairNS.second->GetReady())
+	{
+		CDBGamePlayerSummary *GamePlayerSummaryNS = SinglePairNS.second->GetResult();
+		if( GamePlayerSummaryNS )
+		{
+			nsPlayerHasStats = true;
+			nsGamesPlayedCount = GamePlayerSummaryNS->GetTotalGames();
+			nsAveragePercentageStay = GamePlayerSummaryNS->GetAvgLeftPercent();
+			//PlayerJoinedFromMsg += " Games: " + UTIL_ToString(GamePlayerSummaryNS->GetTotalGames()) + " Average stay: " + UTIL_ToString( GamePlayerSummaryNS->GetAvgLeftPercent( ) ) + "%";
+		}
+		else
+		{
+			//PlayerJoinedFromMsg += " He/she is newbie here.";
+		}
+		m_GHost->m_DB->RecoverCallable( SinglePairNS.second );
+		delete SinglePairNS.second;
+	}
 
 	if (!Reserved)
     if (m_GHost->nsEnableStayPercentageCheckNew)
 	{
-
-		PairedGPSCheck SinglePairNS("",m_GHost->m_DB->ThreadedGamePlayerSummaryCheck(joinPlayer->GetName()));
-
 		//uint32_t nsGamesPlayedCount;
+		//PairedGPSCheck SinglePairNS("",m_GHost->m_DB->ThreadedGamePlayerSummaryCheck(joinPlayer->GetName()));
 
-		if(SinglePairNS.second->GetReady())
-		{
-			CDBGamePlayerSummary *GamePlayerSummaryNS = SinglePairNS.second->GetResult();
+		//if(SinglePairNS.second->GetReady())
+		//{
+			//CDBGamePlayerSummary *GamePlayerSummaryNS = SinglePairNS.second->GetResult();
 
-			if( GamePlayerSummaryNS )
+			if( nsPlayerHasStats )//if( GamePlayerSummaryNS )
 			{
-				uint32_t nsGamesPlayedCount = GamePlayerSummaryNS->GetTotalGames();
-				uint32_t nsAveragePercentageStay = GamePlayerSummaryNS->GetAvgLeftPercent();
-				uint32_t nsRequaredPercentageStay;
+				//uint32_t nsGamesPlayedCount = GamePlayerSummaryNS->GetTotalGames();
+				//uint32_t nsAveragePercentageStay = GamePlayerSummaryNS->GetAvgLeftPercent();
+				//uint32_t nsRequaredPercentageStay;
 
 				if ( nsGamesPlayedCount == 1 && nsAveragePercentageStay > m_GHost->nsStayRequaredPercentage1moreNew)
 				{
@@ -3011,7 +2980,7 @@ void CBaseGame :: EventPlayerJoined( CPotentialPlayer *potential, CIncomingJoinP
 				{
 					if (m_GHost->m_Verbose)
 					{
-						SendAllChat( "Player [" + joinPlayer->GetName()+ "] is a leaver. Games: " + UTIL_ToString(nsGamesPlayedCount) + " Stay percent: " + UTIL_ToString(nsAveragePercentageStay) );
+						SendAllChat( "Player [" + joinPlayer->GetName()+ "] is trying to joint but is a leaver. Games: " + UTIL_ToString(nsGamesPlayedCount) + " Stay percent: " + UTIL_ToString(nsAveragePercentageStay) );
 					}
 					//кик
 					// let banned players "join" the game with an arbitrary PID then immediately close the connection
@@ -3044,101 +3013,10 @@ void CBaseGame :: EventPlayerJoined( CPotentialPlayer *potential, CIncomingJoinP
 					return;
 				}
 			}
-			m_GHost->m_DB->RecoverCallable( SinglePairNS.second );
-			delete SinglePairNS.second;
-		}
+			//m_GHost->m_DB->RecoverCallable( SinglePairNS.second );
+			//delete SinglePairNS.second;
+		//}
 	}
-
-	//check ip range banning
-	if (IpRangeBanning)
-	if (!Reserved)
-	if (!m_ScoreCheckChecked)
-	if (!potential->IsLAN())
-		if (m_GHost->m_IPBanning!=0)
-		{
-				uint32_t  PlayerIpUint32t = UTIL_ByteArrayToUInt32( potential->GetExternalIP( ), true );
-
-			//	"1602486272","1602748415"
-			//	"3716808704","3718840319"
-			//	"3716808704","3718840319"
-			//	"3739746304","3740270591"
-			//	"1360547840","1360551935"
-			//	"3660578816","3661103103"
-
-				uint32_t  RangeLowLimit = 1602486272; //из бд
-				uint32_t  RangeHighLimit = 1602748415;  //из бд
-				//if ( PlayerIpUint32t > RangeLowLimit || PlayerIpUint32t < RangeHighLimit )
-				if ( 
-					//( PlayerIpUint32t >= RangeLowLimit && PlayerIpUint32t <= RangeHighLimit ) ||
-					( PlayerIpUint32t >= 3716808704 && PlayerIpUint32t <= 3718840319 ) ||
-					( PlayerIpUint32t >= 3739746304 && PlayerIpUint32t <= 3740270591 ) ||
-					//( PlayerIpUint32t >= 1360547840 && PlayerIpUint32t <= 1360551935 ) ||
-					( PlayerIpUint32t >= 3660578816 && PlayerIpUint32t <= 3661103103 )
-					)
-				{
-					vector<CGameSlot> Slots = m_Map->GetSlots( );
-					potential->Send( m_Protocol->SEND_W3GS_SLOTINFOJOIN( 1, potential->GetSocket( )->GetPort( ), potential->GetExternalIP( ), Slots, 0, m_Map->GetMapGameType( ) == GAMETYPE_CUSTOM ? 3 : 0, m_Map->GetMapNumPlayers( ) ) );
-					potential->SetDeleteMe( true );
-
-					if (m_GHost->m_Verbose)
-					SendAllChat ( "Player [" + joinPlayer->GetName() + "] trying to join the game but the IP RANGE is now BANNED!");
-					return;
-				}
-		}/*
-				bool RangesReaded;
-				ifstream in;
-				in.open( "ranges.txt" );
-				//int switcher = 1; //тут какая-то неведомая хуйня творится с присвоением!
-				int RangePairsCount = 0;
-				if( !in.fail() )
-				{
-					string Line;
-					while( !in.eof() )
-					{
-						getline( in, Line );
-						if ( Line == "#" )
-						{
-							switcher = 1;
-							PhrasePairsCount++;
-						}
-						if ( Line == "##" )
-						{
-							switcher = 2;
-						}
-						if ( Line == "###" )
-						{
-							switcher = 3;
-						}
-
-						if ( ( Line != "#" ) && ( Line != "##" ) && ( Line != "###" ) )
-						{
-							if ( switcher == 1 )
-							{						
-								Phrases[PhrasePairsCount].insert( Line );
-								QuestionsCount[PhrasePairsCount]++;
-							}
-							if ( switcher == 2 )
-							{
-								PhrasesA[PhrasePairsCount].insert( Line );
-								AnswersCount[PhrasePairsCount]++;
-							}
-							if ( switcher == 3 )
-							{
-								PhrasesUnknown.insert( Line );
-								PhrasesUnknownCount++;
-							}
-						}
-					}
-					in.close();
-				}
-				RangesReaded = true;
-			}
-	*/
-
-	// check if the new player's ip is banned
-	
-
-
 
 	// check if we only allow garena
 	if (!m_ScoreCheckChecked)
@@ -3290,42 +3168,6 @@ void CBaseGame :: EventPlayerJoined( CPotentialPlayer *potential, CIncomingJoinP
 	}
 
 
-
-	//новая антиливер система 
-	//возможно крашит бота// ага, скорее всего она//крашит при входе 2го игрока из-за потоковых функций//куда бы их засунуть? или заменить?
-	//функции не выполняющиеся отдельным потоком приводят к БСОД
-
-	if (!Reserved)
-	if ( m_GHost->nsEnableStayPercentageCheck )
-	{
-		//potential->GetJoinPlayer()->
-		//поток
-		uint32_t nsStayPercentage = m_GHost->m_DB->ThreadedGamePlayerSummaryCheck( joinPlayer->GetName() )->GetResult()->GetAvgLeftPercent();
-		uint32_t nsPlayerGamesCount = m_GHost->m_DB->ThreadedGamePlayerSummaryCheck( joinPlayer->GetName() )->GetResult()->GetTotalGames();
-
-		//без доп потока
-		//uint32_t nsPlayerGamesCount = m_GHost->m_DB->GamePlayerSummaryCheck( joinPlayer->GetName() )->GetTotalGames();
-		//uint32_t nsStayPercentage = m_GHost->m_DB->GamePlayerSummaryCheck( joinPlayer->GetName() )->GetAvgLeftPercent();
-
-
-		if (
-			( ( nsPlayerGamesCount >= m_GHost->nsMinGamesCountToApplyRule ) && ( nsStayPercentage <= m_GHost->nsStayRequaredPercentage ) ) ||
-			( ( nsPlayerGamesCount < m_GHost->nsMinGamesCountToApplyRule ) && ( !m_GHost->nsAllowUnknownStayPercentagePlayers ) )
-			)
-		{
-			if (m_GHost->m_Verbose)
-			{
-				SendAllChat( joinPlayer->GetName() + " is trying to join the game but is not allowed by stats. GameCount: " + UTIL_ToString(nsPlayerGamesCount) + ", StayPercentage: " + UTIL_ToString(nsStayPercentage) );
-			}
-			CONSOLE_Print( "[GAME: " + m_GameName + "] player [" + joinPlayer->GetName( ) + "|" + potential->GetExternalIPString( ) + "] is trying to join the game but is not allowed by stats. GameCount: " + UTIL_ToString(nsPlayerGamesCount) + ", StayPercentage: " + UTIL_ToString(nsStayPercentage) );
-			vector<CGameSlot> Slots = m_Map->GetSlots( );
-			potential->Send( m_Protocol->SEND_W3GS_SLOTINFOJOIN( 1, potential->GetSocket( )->GetPort( ), potential->GetExternalIP( ), Slots, 0, m_Map->GetMapGameType( ) == GAMETYPE_CUSTOM ? 3 : 0, m_Map->GetMapNumPlayers( ) ) );
-			potential->SetDeleteMe( true );
-			return;
-		}
-	}
-	//новая антиливер система конец
-/**/
 	if( m_MatchMaking && m_AutoStartPlayers != 0 && !m_Map->GetMapMatchMakingCategory( ).empty( ) && m_Map->GetMapGameType( ) == GAMETYPE_CUSTOM )
 	{
 		// matchmaking is enabled
@@ -3620,8 +3462,6 @@ void CBaseGame :: EventPlayerJoined( CPotentialPlayer *potential, CIncomingJoinP
 	// turning the CPotentialPlayer into a CGamePlayer is a bit of a pain because we have to be careful not to close the socket
 	// this problem is solved by setting the socket to NULL before deletion and handling the NULL case in the destructor
 	// we also have to be careful to not modify the m_Potentials vector since we're currently looping through it
-
-	//CONSOLE_Print( "[GAME: " + m_GameName + "] player [" + joinPlayer->GetName( ) + "|" + potential->GetExternalIPString( ) + "] joined the game" );
 	CGamePlayer *Player = new CGamePlayer( potential, m_SaveGame ? EnforcePID : GetNewPID( ), JoinedRealm, joinPlayer->GetName( ), joinPlayer->GetInternalIP( ), Reserved );
 	Player->SetSID( SID );
 
@@ -3724,13 +3564,7 @@ void CBaseGame :: EventPlayerJoined( CPotentialPlayer *potential, CIncomingJoinP
 	BlankIP.push_back( 0 );
 	
 
-	CONSOLE_Print( "[GAME: " + m_GameName + "] player [" + Player->GetName( ) + "|" + Player->GetExternalIPString() +"] has joined from [" + ( JoinedRealm == string( ) ? "LAN" : JoinedRealm ) + "]"
-		//. GameCount: " + UTIL_ToString(nsPlayerGamesCount) + ", StayPercentage: " + UTIL_ToString(nsStayPercentage) 
-		);
 	m_GHost->UDPChatSend("|newplayer "+UTIL_ToString(GetSlotsOpen()) + " " + Player->GetName());
-
-	//GameCount: " + UTIL_ToString(nsPlayerGamesCount) + " StayPercentage:" + UTIL_ToString(nsStayPercentage)
-
 
 	//recalculate nr of players in each team + difference in players nr.
 	
@@ -3867,7 +3701,6 @@ void CBaseGame :: EventPlayerJoined( CPotentialPlayer *potential, CIncomingJoinP
 	SendAllSlotInfo( );
 
 	// send a welcome message
-	
 
 	SendWelcomeMessage( Player );
 
@@ -3886,7 +3719,10 @@ void CBaseGame :: EventPlayerJoined( CPotentialPlayer *potential, CIncomingJoinP
 	}
 
 	string PlayerJoinedFromMsg;
-	PlayerJoinedFromMsg = "Player [" + joinPlayer->GetName( ) + "] has joined from [";
+	string PlayerJoinedFromMsgGame;
+	string PlayerJoinedFromMsgConsole;
+	PlayerJoinedFromMsgGame = "Player [" + joinPlayer->GetName( ) + "] has joined from [";
+	PlayerJoinedFromMsgConsole = "[GAME: " + m_GameName + "] player [" + Player->GetName( ) + "|" + Player->GetExternalIPString() + "] has joined from [";
 
 	if(sendserver == string( ))
 	{
@@ -3904,113 +3740,56 @@ void CBaseGame :: EventPlayerJoined( CPotentialPlayer *potential, CIncomingJoinP
 		PlayerJoinedFromMsg += sendserver+"].";
 	}
 
+/*
+		uint32_t nsGamesPlayedCount;
+	uint32_t nsAveragePercentageStay;
+	uint32_t nsRequaredPercentageStay;
+	bool nsPlayerHasStats = false;
+
+	if(SinglePairNS.second->GetReady())
+	{
+		CDBGamePlayerSummary *GamePlayerSummaryNS = SinglePairNS.second->GetResult();
+		if( GamePlayerSummaryNS )
+		{
+			nsPlayerHasStats = true;
+			nsGamesPlayedCount = GamePlayerSummaryNS->GetTotalGames();
+			nsAveragePercentageStay = GamePlayerSummaryNS->GetAvgLeftPercent();
+			//PlayerJoinedFromMsg += " Games: " + UTIL_ToString(GamePlayerSummaryNS->GetTotalGames()) + " Average stay: " + UTIL_ToString( GamePlayerSummaryNS->GetAvgLeftPercent( ) ) + "%";
+		}
+		else
+		{
+			//PlayerJoinedFromMsg += " He/she is newbie here.";
+		}
+		m_GHost->m_DB->RecoverCallable( SinglePairNS.second );
+		delete SinglePairNS.second;
+	}
+	*/
 	if (m_GHost->nsSendAdminGameStats && isAdmin || !isAdmin)
 	{
 
-		PairedGPSCheck SinglePairNS("",m_GHost->m_DB->ThreadedGamePlayerSummaryCheck(joinPlayer->GetName()));
+		//PairedGPSCheck SinglePairNS("",m_GHost->m_DB->ThreadedGamePlayerSummaryCheck(joinPlayer->GetName()));
 
-		if(SinglePairNS.second->GetReady())
-		{
-			CDBGamePlayerSummary *GamePlayerSummaryNS = SinglePairNS.second->GetResult();
-			if( GamePlayerSummaryNS )
+		//if(SinglePairNS.second->GetReady())
+		//{
+			//CDBGamePlayerSummary *GamePlayerSummaryNS = SinglePairNS.second->GetResult();
+			if( nsPlayerHasStats )//if( GamePlayerSummaryNS )
 			{
-				PlayerJoinedFromMsg += " Games count: " + UTIL_ToString(GamePlayerSummaryNS->GetTotalGames()) + " Average stay: " + UTIL_ToString( GamePlayerSummaryNS->GetAvgLeftPercent( ) ) + "%";
+				PlayerJoinedFromMsg += " Games: " + UTIL_ToString(nsGamesPlayedCount) + " Average stay: " + UTIL_ToString( nsAveragePercentageStay ) + "%";
 			}
 			else
 			{
-				PlayerJoinedFromMsg += " He/she hasn't played games with this bot yet";
+				PlayerJoinedFromMsg += " He/she is newbie here.";
 			}
-			m_GHost->m_DB->RecoverCallable( SinglePairNS.second );
-			delete SinglePairNS.second;
-		}
+			//m_GHost->m_DB->RecoverCallable( SinglePairNS.second );
+			//delete SinglePairNS.second;
+		//}
 	}
+//CGamePlayer *Player = new CGamePlayer( potential, m_SaveGame ? EnforcePID : GetNewPID( ), JoinedRealm, joinPlayer->GetName( ), joinPlayer->GetInternalIP( ), Reserved );
+	
+	CONSOLE_Print( PlayerJoinedFromMsgConsole + PlayerJoinedFromMsg);
 
-	SendAllChat(PlayerJoinedFromMsg);
+	SendAllChat(PlayerJoinedFromMsgGame + PlayerJoinedFromMsg);
 
-/*
-	if(m_GHost->m_DB->ThreadedGamePlayerSummaryCheck(joinPlayer->GetName())->GetReady())
-	{
-		CDBGamePlayerSummary *GamePlayerSummaryNS = m_GHost->m_DB->ThreadedGamePlayerSummaryCheck(joinPlayer->GetName())->GetResult();
-		if( GamePlayerSummaryNS )
-		{
-			PlayerJoinedFromMsg
-			SendAllChat( m_GHost->m_Language->HasPlayedGamesWithThisBot( i->second->GetName( ), GamePlayerSummary->GetFirstGameDateTime( ), GamePlayerSummary->GetLastGameDateTime( ), UTIL_ToString( GamePlayerSummary->GetTotalGames( ) ), UTIL_ToString( (float)GamePlayerSummary->GetAvgLoadingTime( ) / 1000, 2 ), UTIL_ToString( GamePlayerSummary->GetAvgLeftPercent( ) ) ) );
-		}
-	}
-
-	//GamePlayerSummaryCheck
-/*
-	if( potential->GetGarenaUser( ) != NULL ) {
-		Player->SetGarenaUser( potential->GetGarenaUser( ) );
-		potential->SetGarenaUser( NULL );
-	}
-*/
-
-
-/*
-
-
-из game.h
-class CCallableGamePlayerSummaryCheck;
-typedef pair<string,CCallableGamePlayerSummaryCheck *> PairedGPSCheck;
-
-
-		if( player->GetSpoofed( ) && ( AdminCheck || RootAdminCheck || IsOwner( User ) ) )
-			m_PairedGPSChecks.push_back( PairedGPSCheck( string( ), m_GHost->m_DB->ThreadedGamePlayerSummaryCheck( StatsUser ) ) );
-
-хз откуда
-
-
-
-	for( vector<PairedGPSCheck> :: iterator i = m_PairedGPSChecks.begin( ); i != m_PairedGPSChecks.end( ); )
-	{
-		if( i->second->GetReady( ) )
-		{
-			CDBGamePlayerSummary *GamePlayerSummary = i->second->GetResult( );
-
-			if( GamePlayerSummary )
-			{
-				if( i->first.empty( ) )
-					SendAllChat( m_GHost->m_Language->HasPlayedGamesWithThisBot( i->second->GetName( ), GamePlayerSummary->GetFirstGameDateTime( ), GamePlayerSummary->GetLastGameDateTime( ), UTIL_ToString( GamePlayerSummary->GetTotalGames( ) ), UTIL_ToString( (float)GamePlayerSummary->GetAvgLoadingTime( ) / 1000, 2 ), UTIL_ToString( GamePlayerSummary->GetAvgLeftPercent( ) ) ) );
-				else
-				{
-					CGamePlayer *Player = GetPlayerFromName( i->first, true );
-
-					if( Player )
-						SendChat( Player, m_GHost->m_Language->HasPlayedGamesWithThisBot( i->second->GetName( ), GamePlayerSummary->GetFirstGameDateTime( ), GamePlayerSummary->GetLastGameDateTime( ), UTIL_ToString( GamePlayerSummary->GetTotalGames( ) ), UTIL_ToString( (float)GamePlayerSummary->GetAvgLoadingTime( ) / 1000, 2 ), UTIL_ToString( GamePlayerSummary->GetAvgLeftPercent( ) ) ) );
-				}
-			}
-			else
-			{
-				if( i->first.empty( ) )
-					SendAllChat( m_GHost->m_Language->HasntPlayedGamesWithThisBot( i->second->GetName( ) ) );
-				else
-				{
-					CGamePlayer *Player = GetPlayerFromName( i->first, true );
-
-					if( Player )
-						SendChat( Player, m_GHost->m_Language->HasntPlayedGamesWithThisBot( i->second->GetName( ) ) );
-				}
-			}
-
-			m_GHost->m_DB->RecoverCallable( i->second );
-			delete i->second;
-			i = m_PairedGPSChecks.erase( i );
-		}
-		else
-			i++;
-	}
-
-*/
-
-	//PlayerJoinedFromMsg += "]";
-
-	//PlayerJoinedFromMsg += "]";
-
-
-	//SendAllChat( "Player [" + joinPlayer->GetName( ) + "] has joined from [" + ( sendserver == string( ) ? "LAN" : sendserver ) + "]"
-		//.  GameCount: " + UTIL_ToString(nsPlayerGamesCount) + ", StayPercentage: " + UTIL_ToString(nsStayPercentage) 
-	//	);
 
 	// if spoof checks are required and we won't automatically spoof check this player then tell them how to spoof check
 	// e.g. if automatic spoof checks are disabled, or if automatic spoof checks are done on admins only and this player isn't an admin
